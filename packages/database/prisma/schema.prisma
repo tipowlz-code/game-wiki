@@ -4,16 +4,87 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  moduleFormat = "cjs"
+  output       = "./generated"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-model User { 
-  id    Int     @id @default(autoincrement()) 
-  email String  @unique
-  name  String?
-} 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  name     String?
+  password String
+  role     UserRole @default(USER)
+
+  // Audit timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Self-referential audit FK (who created/updated this user record)
+  createdById Int?
+  createdBy   User? @relation("UserCreatedBy", fields: [createdById], references: [id])
+  updatedById Int?
+  updatedBy   User? @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+
+  // Back-relations for self-referential audit
+  usersICreated User[] @relation("UserCreatedBy")
+  usersIUpdated User[] @relation("UserUpdatedBy")
+
+  // Back-relations for Game audit
+  gamesCreated Game[] @relation("GameCreatedBy")
+  gamesUpdated Game[] @relation("GameUpdatedBy")
+
+  // Back-relations for Video audit
+  videosCreated Video[] @relation("VideoCreatedBy")
+  videosUpdated Video[] @relation("VideoUpdatedBy")
+}
+
+model Game {
+  id        Int     @id @default(autoincrement())
+  title     String
+  genre     String
+  boxartUrl String?
+  slug      String? @unique
+
+  // Audit timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Audit FK
+  createdById Int?
+  createdBy   User? @relation("GameCreatedBy", fields: [createdById], references: [id])
+  updatedById Int?
+  updatedBy   User? @relation("GameUpdatedBy", fields: [updatedById], references: [id])
+
+  // Relations
+  videos Video[]
+}
+
+model Video {
+  id    Int    @id @default(autoincrement())
+  title String
+  url   String
+
+  // Parent game
+  gameId Int
+  game   Game @relation(fields: [gameId], references: [id])
+
+  // Audit timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Audit FK
+  createdById Int?
+  createdBy   User? @relation("VideoCreatedBy", fields: [createdById], references: [id])
+  updatedById Int?
+  updatedBy   User? @relation("VideoUpdatedBy", fields: [updatedById], references: [id])
+}
